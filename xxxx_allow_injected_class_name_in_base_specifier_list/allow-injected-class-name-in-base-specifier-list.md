@@ -141,7 +141,6 @@ The code that changes meaning is, in the author's opinion, contrived and unclear
 The fact that the code already does something different if written one line later inside the body of the class means that most readers of the code will be unaware that the result is different.
 Picking one consistent interpretation for this expression will make it easier for people to understand and build a mental model for the rules of the language.
 
-
 # Acknowledgments
 
 At C++Now 2023 at the first language feature in a week session someone shouted this idea out as a good proposal.

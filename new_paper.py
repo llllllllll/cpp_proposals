@@ -20,8 +20,8 @@ document: P{args.number}R0
 date: today
 audience: ???
 author:
-    - name: Barry Revzin
-      email: <barry.revzin@gmail.com>
+    - name: Joe Jevnik
+      email: <joejev@gmail.com>
 toc: true
 ---
 

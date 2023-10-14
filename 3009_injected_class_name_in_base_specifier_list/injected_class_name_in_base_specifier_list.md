@@ -1,6 +1,6 @@
 ---
 title: "Injected class name in the base specifier list"
-document: PxxxxR0
+document: P3009R0
 date: 2023-10-07
 audience: EWG
 author:
@@ -11,26 +11,31 @@ toc: false
 
 # Abstract
 
-Inside of a class template body, the bare-name of the class template refers to the current template instantiation; this is referred to as the _injected-class-name_.
+Inside of a class template body, the _class-name_ of the class template refers to the current template instantiation; this is referred to as the _injected-class-name_.
 The _injected-class-name_ is not present until the class body begins, which is after the opening brace of the class definition.
-The consequence of this is that the injected class name is not available in the _base-specifier-list_, which means it is not accessible when using the curiously recurring template pattern (CRTP).
-While [@P0847R6] has removed the need for using CRTP in many places, there are still existing patterns that must be expressed using this pattern.
-This paper proposes allowing the use of the _injected-class-name_ in the _base-specifier-list_.
-This paper also aims to reduce complexity in the language by removing a special case in overload resolution.
+The consequence of this is that the _injected-class-name_ is not available in the _base-specifier-list_, which means it is not accessible when using the curiously recurring template pattern (CRTP).
+While [@P0847R7] has removed the need for using CRTP in many places, there still exist cases that must be expressed using this pattern.
+This paper proposes allowing the use of the _injected-class-name_ in the _base-specifier-list_ to simplify code using CRTP.
+This paper also aims to reduce complexity in the language by simplifying the interpretation of the _class-name_ and the rules around the _injected-class-name_.
 
 # Introduction
 
-Using the _injected-class-name_ is not only easier to read, it is also less bug prone.
+Using the _injected-class-name_ when implementing class templates is not only easier to read, it is also less bug prone.
 Many complicated container types use multiple template arguments, often with rarely changed default arguments.
 For example, a mapping type have may some `Key` type and a `Value` type in addition to `Hash`, `KeyEqual`, and `Allocator`.
-The last three arguments are often defaulted, as it is for the standard library's `std::unordered_map`, which means people can easily forget that they are there.
+The last three arguments are often defaulted, as it is for the standard library's `std::unordered_map`, which means people can easily forget that they exist.
 Using the _injected-class-name_ to refer to the current instantiation makes it impossible to forget to include all of these extra template arguments.
 When the _injected-class-name_ is not used, it is possible to write code that works for common cases, but produces difficult to understand compiler errors for some template instantiations.
 For example, consider the following template class:
 
 ```c++
+template <typename Derived>
+struct CRTPBase {
+    // ...
+};
+
 template <typename Key,
-          typeanme Value,
+          typename Value,
           typename KeyEqual = std::equal<Key>,
           typename Hash = std::hash<Key>
           typename Allocator = std::allocator<std::pair<Key const, Value>>>
@@ -74,11 +79,11 @@ static_assert(std::is_base_of_v<WasTemplate, CurrentlyUnambiguousBase<void>>);
 ```
 
 In this example, we have a function template `foo` which is overloaded once for a type template argument, and once for a template template argument.
-In the _base-specifier-list_ the _bare-name_ `CurrentlyUnambiguousBase` will always refer to the class template and never refer to an instantiation of the class template.
+In the _base-specifier-list_ the _class-name_ `CurrentlyUnambiguousBase` will always refer to the class template and never refer to an instantiation of the class template.
 Because the name unambiguously refers to the class template, the compiler chooses overload 2 for `foo`.
 
-Inside the class body, the _bare-name_ can refer to the current template instantiation being defined, which means that `CurrentlyUnambiguousBase` may be the type `CurrentlyUnambiguousBase<Type>` or the class template `CurrentlyUnambiguousBase`.
-This means that moving the exact same expression from the base-list inside the class body results in an ambiguous overload.
+Inside the class body, the _class-name_ can refer to the current template instantiation being defined, which means that `CurrentlyUnambiguousBase` may be the type `CurrentlyUnambiguousBase<Type>` or the class template `CurrentlyUnambiguousBase`.
+This means that moving the exact same expression from the _base-specifier-list_ inside the class body results in an ambiguous overload.
 
 ```c++
 template <typename Type>
@@ -118,12 +123,18 @@ static_assert(std::is_base_of_v<WasTemplate, DifferentBehavior<void>>);
 static_assert(std::is_same_v<WasType, DifferentBehavior<void>::InsideBody>);
 ```
 
-Like the unambiguous to ambiguous example this code uses an overloaded function template: `bar`.
+This code uses an overloaded function template: `bar`.
 `bar` has two overloads: one which has a type template parameter with an `int` parameter and a second which takes a template template parameter and a `long` parameter.
 In the _base-specifier-list_, where `DifferentBehavior` unambiguously refers to the class template, `bar<DifferentBehavior>(0)` only considers overload 2 and allows an implicit conversion from `0` (which is of type `int`) to `long`.
 Inside the class body where `DifferentBehavior` can refer to either the class template or the current instantiation depending on the context, both overloads 1 and 2 are considered.
 Overload 1 takes exactly an `int`, which makes the function an exact match.
 If the _injected-class-name_ was introduced in the _base-specifier-list_, then this code would begin to fail the first `static_assert`, and instead the base class would become `WasType`.
+
+## Proposed Wording
+
+In [basic.scope.pdecl]{.sref}/8:
+
+The locus of an _injected-class-name_ declaration ([class.pre]{.sref}) is immediately following the [opening brace]{.rm}[_class-head-name_]{.add} of the class definition.
 
 # Prior Work
 
